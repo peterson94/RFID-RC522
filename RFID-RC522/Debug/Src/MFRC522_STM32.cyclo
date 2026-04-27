@@ -8,6 +8,6 @@
 ../Src/MFRC522_STM32.c:93:9:MFRC522_RequestA	5
 ../Src/MFRC522_STM32.c:144:9:MFRC522_Anticoll	7
 ../Src/MFRC522_STM32.c:201:9:MFRC522_ReadUid	3
-../Src/MFRC522_STM32.c:217:9:MFRC522_Authentication	4
-../Src/MFRC522_STM32.c:269:9:waitcardRemoval	2
-../Src/MFRC522_STM32.c:280:9:waitcardDetect	2
+../Src/MFRC522_STM32.c:217:9:MFRC522_Authentication	6
+../Src/MFRC522_STM32.c:278:9:waitcardRemoval	2
+../Src/MFRC522_STM32.c:289:9:waitcardDetect	2

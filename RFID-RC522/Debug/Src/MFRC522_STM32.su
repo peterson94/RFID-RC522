@@ -9,5 +9,5 @@
 ../Src/MFRC522_STM32.c:144:9:MFRC522_Anticoll	40	static
 ../Src/MFRC522_STM32.c:201:9:MFRC522_ReadUid	32	static
 ../Src/MFRC522_STM32.c:217:9:MFRC522_Authentication	32	static
-../Src/MFRC522_STM32.c:269:9:waitcardRemoval	16	static
-../Src/MFRC522_STM32.c:280:9:waitcardDetect	16	static
+../Src/MFRC522_STM32.c:278:9:waitcardRemoval	16	static
+../Src/MFRC522_STM32.c:289:9:waitcardDetect	16	static

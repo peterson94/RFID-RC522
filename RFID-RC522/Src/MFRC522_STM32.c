@@ -237,29 +237,38 @@ uint8_t MFRC522_Authentication(MFRC522_t *dev, uint8_t *uid, uint8_t *block_data
 	MFRC522_WriteReg(dev, PCD_CommandReg, PCD_MFAuthent);
 	//MFRC522_SetBitMask(dev, PCD_BitFramingReg, 0x80); //only "Transceive" command needs it
 
-    uint32_t timeout = HAL_GetTick() + 25000;
+    uint32_t timeout = HAL_GetTick() + 5000;
     while (HAL_GetTick() < timeout) {
     	MFRC522_ReadReg(dev, PCD_ErrorReg);
     	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
+    	MFRC522_ReadReg(dev, 0x0B); // water level reg.
+    	uint8_t irq = MFRC522_ReadReg(dev, PCD_ComIrqReg);
         uint8_t status2 = MFRC522_ReadReg(dev, PCD_Status2Reg);
-        if (status2 & 0x08) {  // MFCrypto1On bit is set
-            uint8_t err = MFRC522_ReadReg(dev, PCD_ErrorReg);
-            if (err & 0x1D) {
-                DEBUG_LOG("Authentication error: 0x%02X", err);
-                MFRC522_AntennaOff(dev);
-                HAL_Delay(5);
-                MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Idle);
-                return STATUS_ERROR;
-            }
 
-			DEBUG_LOG("Authentication successful.");
-			MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Idle);
-			HAL_Delay(2);  // Post-command delay
-			return STATUS_OK;
+        if (irq & 0x02) {
+        	return STATUS_ERROR;
         }
-        HAL_Delay(1);  // Mimic debug log timing
+
+        if (irq & 0x10){
+			if (status2 & 0x08) {  // MFCrypto1On bit is set
+				uint8_t err = MFRC522_ReadReg(dev, PCD_ErrorReg);
+				if (err & 0x1D) {
+					DEBUG_LOG("Authentication error: 0x%02X", err);
+					MFRC522_AntennaOff(dev);
+					HAL_Delay(5);
+					MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Idle);
+					return STATUS_ERROR;
+				}
+
+				DEBUG_LOG("Authentication successful.");
+				MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Idle);
+				HAL_Delay(2);  // Post-command delay
+				return STATUS_OK;
+			}
+			HAL_Delay(1);  // Mimic debug log timing
+        }
     }
-    DEBUG_LOG("Authentication timeout");
+    USER_LOG("Authentication timeout");
     MFRC522_AntennaOff(dev);
     HAL_Delay(5);
     MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Idle);
