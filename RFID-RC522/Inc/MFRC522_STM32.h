@@ -48,6 +48,8 @@
 #define PICC_REQA          0x26
 #define PICC_SEL_CL1       0x93
 #define PICC_AUTH_A		   0x60
+#define PICC_AUTH_B		   0x61
+#define PICC_READ		   0x30
 
 // Status
 #define STATUS_OK          0
@@ -75,6 +77,7 @@ uint8_t MFRC522_Anticoll(MFRC522_t *dev, uint8_t *uid);
 uint8_t MFRC522_ReadUid(MFRC522_t *dev, uint8_t *uid);
 uint8_t MFRC522_Select(MFRC522_t *dev, uint8_t *uid);
 uint8_t MFRC522_Authentication(MFRC522_t *dev, uint8_t *uid, uint8_t *block_data, uint8_t address);
+uint8_t MFRC522_Read_Block(MFRC522_t *dev, uint8_t address);
 uint8_t waitcardRemoval (MFRC522_t *dev);
 uint8_t waitcardDetect (MFRC522_t *dev);
 
