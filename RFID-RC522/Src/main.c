@@ -70,9 +70,9 @@ int _write(int fd, unsigned char *buf, int len) {
 }
 
 uint8_t uid[4];
-uint8_t data_block[18];
-
+uint8_t data_block[18]; // 16 data byte + 2 CRC byte
 MFRC522_t rfID = {&hspi1, CS_GPIO_Port, CS_Pin, RESET_GPIO_Port, RESET_Pin};
+//FIFO_64B FIFO = {{},0,63};
 
 /* USER CODE END 0 */
 
@@ -82,92 +82,87 @@ MFRC522_t rfID = {&hspi1, CS_GPIO_Port, CS_Pin, RESET_GPIO_Port, RESET_Pin};
   */
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
+	/* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
-  
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* USER CODE BEGIN Init */
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE END Init */
+	/* USER CODE BEGIN Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* USER CODE END Init */
 
-  /* USER CODE BEGIN SysInit */
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE END SysInit */
+	/* USER CODE BEGIN SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_SPI1_Init();
-  MX_USART2_UART_Init();
-  /* USER CODE BEGIN 2 */
-  MFRC522_Init(&rfID);
-  /* USER CODE END 2 */
+	/* USER CODE END SysInit */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
-	//	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_8);
-	//	HAL_Delay(500);
-	//	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_9);
-	//	HAL_Delay(500);
-	//	HAL_UART_Transmit(&huart2, data, 7, 100);
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_SPI1_Init();
+	MX_USART2_UART_Init();
+	/* USER CODE BEGIN 2 */
+	MFRC522_Init(&rfID);
+	/* USER CODE END 2 */
 
-	/* USER CODE BEGIN 3 */
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
+	while (1){
+		/* USER CODE END WHILE */
 
-	if (waitcardDetect(&rfID) == STATUS_OK)
-	{
-		if (MFRC522_ReadUid(&rfID, uid) == STATUS_OK)
-		{
-			USER_LOG("CARD ID:%02X %02X %02X %02X", uid[0], uid[1], uid[2], uid[3]);
-			if ((uid[0] == 0x83) && (uid[1] == 0xFB) &&(uid[2] == 0x1B) &&(uid[3] == 0x34)){
-//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
-//			  HAL_Delay(1000);
-//			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
-			  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_8);
+		/* USER CODE BEGIN 3 */
+//		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_8);
+//		HAL_Delay(500);
+//		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_9);
+//		HAL_Delay(500);
+//		HAL_UART_Transmit(&huart2, data, 7, 100);
+
+		if (waitcardDetect(&rfID) == STATUS_OK){
+			if (MFRC522_ReadUid(&rfID, uid) == STATUS_OK){
+				USER_LOG("CARD ID:%02X %02X %02X %02X", uid[0], uid[1], uid[2], uid[3]);
+				if ((uid[0] == 0x83) && (uid[1] == 0xFB) &&(uid[2] == 0x1B) &&(uid[3] == 0x34)){
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+//					HAL_Delay(1000);
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+				}
+				else if ((uid[0] == 0x93) && (uid[1] == 0x24) &&(uid[2] == 0x41) &&(uid[3] == 0xCD)){
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
+//					HAL_Delay(1000);
+//					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
+					HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
+				}
 			}
 
-			else if ((uid[0] == 0x93) && (uid[1] == 0x24) &&(uid[2] == 0x41) &&(uid[3] == 0xCD)){
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
-			  HAL_Delay(1000);
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
-
+			if (MFRC522_Select(&rfID, uid) == STATUS_OK){
+				USER_LOG("SELECT_SUCCESS");
 			}
-		}
 
-		if (MFRC522_Select(&rfID, uid) == STATUS_OK)
-		{
-			USER_LOG("SELECT_SUCCESS");
-		}
+			if (MFRC522_Authentication(&rfID, uid, 0x0A) == STATUS_OK){
+				USER_LOG("AUTH_SUCCESS");
+			}
 
-		if (MFRC522_Authentication(&rfID, uid, data_block, 0x0A) == STATUS_OK)
-		{
-			USER_LOG("AUTH_SUCCESS");
-		}
+			if (MFRC522_Read_Block(&rfID, 0x0A, data_block) == STATUS_OK){
+//				USER_LOG("BLOCK_DATA: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",data_block[0],data_block[1],data_block[2],data_block[3],data_block[4],data_block[5],data_block[6],data_block[7],data_block[8],data_block[9],data_block[10],data_block[11],data_block[12],data_block[13],data_block[14],data_block[15]);
+				USER_LOG_N("[USER] ");
+				for (int i = 0; i < sizeof(data_block)-2; i++){
+					USER_LOG_N("%02X ",data_block[i]);
+				}
 
-		if (MFRC522_Read_Block(&rfID, 0x0A, data_block) == STATUS_OK)
-		{
-			USER_LOG("BLOCK_DATA: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",data_block[0],data_block[1],data_block[2],data_block[3],data_block[4],data_block[5],data_block[6],data_block[7],data_block[8],data_block[9],data_block[10],data_block[11],data_block[12],data_block[13],data_block[14],data_block[15]);
-//			for (int i = 0; i < sizeof(data_block)-2; i++){
-//				USER_LOG("%02X ",data_block[i]);
-//			}
+				USER_LOG_N("\r\n");
+			}
 
+			waitcardRemoval(&rfID);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
 		}
-//		MFRC522_Init(&rfID);
-		waitcardRemoval_2(&rfID);
-		waitcardRemoval(&rfID);
-		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_8);
 	}
-  }
 	  /* USER CODE END 3 */
 }
 

@@ -1,7 +1,19 @@
 #include "MFRC522_STM32.h"
 #include "main.h"
+#include "calculation_crc.h"
 
 uint8_t atqa[2];
+
+void FIFO_ADD(FIFO_64B * FIFO, uint8_t C){
+    uint8_t *index = &(FIFO->head);
+
+    if (*index == FIFO->tail) {
+        FIFO->head = 0;
+    }
+
+    FIFO->buffer[*index] = C;
+    FIFO->head += 1;
+}
 
 void MFRC522_Init(MFRC522_t *dev) {
     USER_LOG("MFRC522 Min Init started");
@@ -199,50 +211,74 @@ uint8_t MFRC522_Anticoll(MFRC522_t *dev, uint8_t *uid) {  // Returns 4-byte UID 
 }
 
 uint8_t MFRC522_Select(MFRC522_t *dev, uint8_t *uid) {  // Returns 4-byte UID + BCC
-    DEBUG_LOG("Anticoll");
+    DEBUG_LOG("Select");
     MFRC522_WriteReg(dev, PCD_ComIrqReg, 0x7F);      // Clear IRQs
     MFRC522_WriteReg(dev, PCD_FIFOLevelReg, 0x80);   // Flush FIFO
     MFRC522_WriteReg(dev, PCD_BitFramingReg, 0x00);  // Full frame
-    MFRC522_WriteReg(dev, PCD_FIFODataReg, PICC_SEL_CL1);  // 0x93
-    MFRC522_WriteReg(dev, PCD_FIFODataReg, 0x70);    // Number of valid bytes including SEL and this one
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[0]);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[1]);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[2]);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[3]);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0x57); //BCC
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xF0); //CRC-A byte0
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xA2); //CRC-A byte1
+
+
+
+//  MFRC522_WriteReg(dev, PCD_FIFODataReg, PICC_SEL_CL1);  // 0x93
+//  MFRC522_WriteReg(dev, PCD_FIFODataReg, 0x70);    // Number of valid bytes including SEL and this one
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[0]);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[1]);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[2]);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[3]);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0x57); //BCC
+	FIFO_64B TEMP = {{},0,0};
+	FIFO_ADD(&TEMP,PICC_SEL_CL1);
+	FIFO_ADD(&TEMP,0x70);
+	FIFO_ADD(&TEMP,uid[0]);
+	FIFO_ADD(&TEMP,uid[1]);
+	FIFO_ADD(&TEMP,uid[2]);
+	FIFO_ADD(&TEMP,uid[3]);
+	FIFO_ADD(&TEMP,uid[0]^uid[1]^uid[2]^uid[3]);
+
+	uint8_t A, B;
+	ComputeCrc(CRC_A, TEMP.buffer, TEMP.head, &A, &B);
+//	USER_LOG("%02X %02X",A,B);
+	FIFO_ADD(&TEMP,A);
+	FIFO_ADD(&TEMP,B);
+
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xF0); //CRC-A byte0
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xA2); //CRC-A byte1
+
+	for (int i = 0; i < TEMP.head; i++){
+		MFRC522_WriteReg(dev, PCD_FIFODataReg, TEMP.buffer[i]);
+	}
 
 	MFRC522_ReadReg(dev, PCD_ComIrqReg);
     HAL_Delay(2);  // Delay for stability
     MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Transceive);
     MFRC522_SetBitMask(dev, PCD_BitFramingReg, 0x80);
 
-   // while (1){
-   // 	MFRC522_ReadReg(dev, PCD_ComIrqReg);
-   // 	MFRC522_ReadReg(dev, PCD_FIFODataReg);
-   // }
-   // HAL_Delay(10);
-   // MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
-   // MFRC522_ReadReg(dev, PCD_FIFODataReg);
-   // MFRC522_ReadReg(dev, PCD_FIFODataReg);
-   // MFRC522_ReadReg(dev, PCD_FIFODataReg);
-
     return STATUS_OK;
 
 }
 
 uint8_t MFRC522_Read_Block(MFRC522_t *dev, uint8_t address, uint8_t *block_data) {  // Returns 4-byte UID + BCC
-    DEBUG_LOG("Read block...");
-    MFRC522_WriteReg(dev, PCD_ComIrqReg, 0x7F);      // Clear IRQs
-    MFRC522_WriteReg(dev, PCD_FIFOLevelReg, 0x80);   // Flush FIFO
-    MFRC522_WriteReg(dev, PCD_BitFramingReg, 0x00);  // Full frame
-    MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Idle); // Idle state
+	DEBUG_LOG("Read block");
+	MFRC522_WriteReg(dev, PCD_ComIrqReg, 0x7F);      // Clear IRQs
+	MFRC522_WriteReg(dev, PCD_FIFOLevelReg, 0x80);   // Flush FIFO
+	MFRC522_WriteReg(dev, PCD_BitFramingReg, 0x00);  // Full frame
+	MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Idle); // Idle state
 
-    MFRC522_WriteReg(dev, PCD_FIFODataReg, PICC_READ);  // 0x30
-    MFRC522_WriteReg(dev, PCD_FIFODataReg, address);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0x58); //CRC-A byte0
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0x07); //CRC-A byte1
+	FIFO_64B TEMP = {{},0,0};
+	FIFO_ADD(&TEMP, PICC_READ);
+	FIFO_ADD(&TEMP, address);
+
+	uint8_t A, B;
+	ComputeCrc(CRC_A, TEMP.buffer, TEMP.head, &A, &B);
+	FIFO_ADD(&TEMP, A);
+	FIFO_ADD(&TEMP, B);
+
+	for (int i = 0; i < TEMP.head; i++){
+		MFRC522_WriteReg(dev, PCD_FIFODataReg, TEMP.buffer[i]);
+	}
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, PICC_READ);  // 0x30
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, address);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0x58); //CRC-A byte0
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0x07); //CRC-A byte1
 
 	MFRC522_ReadReg(dev, PCD_ComIrqReg);
 	MFRC522_ReadReg(dev, PCD_Status2Reg);
@@ -250,80 +286,95 @@ uint8_t MFRC522_Read_Block(MFRC522_t *dev, uint8_t address, uint8_t *block_data)
     MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Transceive);
     MFRC522_SetBitMask(dev, PCD_BitFramingReg, 0x80);
 
-   // while (1){
-   // 	MFRC522_ReadReg(dev, PCD_ComIrqReg);
-   // 	MFRC522_ReadReg(dev, PCD_FIFODataReg);
-   //}
-   //HAL_Delay(10);
+    HAL_Delay(1);
+	for (int i = 0; i < 18; i++){
+		block_data[i] = MFRC522_ReadReg(dev, PCD_FIFODataReg);
+	}
 
-   for (int i = 0; i < 18; i++){
-
-	   block_data[i] = MFRC522_ReadReg(dev, PCD_FIFODataReg);
-   }
-
-    return STATUS_OK;
-
+	return STATUS_OK;
 }
+
 uint8_t MFRC522_ReadUid(MFRC522_t *dev, uint8_t *uid) {  // Output: uid[4]
-    DEBUG_LOG("Reading UID...");
+    DEBUG_LOG("Reading UID");
     // Card detected, read UID
     uint8_t rawUid[5];
-    if (MFRC522_Anticoll(dev, rawUid) != STATUS_OK) {
+    if (MFRC522_Anticoll(dev, rawUid) != STATUS_OK){
     	DEBUG_LOG("Anticollision failed");
         return STATUS_ERROR;
     }
+
     // Copy UID (drop BCC)
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++){
         uid[i] = rawUid[i];
     }
+
     DEBUG_LOG("Card UID: %02X %02X %02X %02X", uid[0], uid[1], uid[2], uid[3]);
     return STATUS_OK;
 }
 
-uint8_t MFRC522_Authentication(MFRC522_t *dev, uint8_t *uid, uint8_t *block_data, uint8_t address) {  // Output: block_data[16]
-	DEBUG_LOG("Authenticate...");
+uint8_t MFRC522_Authentication(MFRC522_t *dev, uint8_t *uid, uint8_t address) {  // Output: block_data[16]
+	DEBUG_LOG("Authenticate");
 	MFRC522_WriteReg(dev, PCD_ComIrqReg, 0x7F);      // Clear IRQs
 	MFRC522_WriteReg(dev, PCD_FIFOLevelReg, 0x80);   // Flush FIFO
 	MFRC522_WriteReg(dev, PCD_BitFramingReg, 0x00);  // Full frame
 
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, PICC_AUTH_B);  // 0x61
-	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, address);    // Address of the block to read
-	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
-	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[0]);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[1]);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[2]);
-	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[3]);
-	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
+	FIFO_64B TEMP = {{},0,0};
+	FIFO_ADD(&TEMP, PICC_AUTH_B);
+	FIFO_ADD(&TEMP, address);
+	FIFO_ADD(&TEMP, 0xFF);
+	FIFO_ADD(&TEMP, 0xFF);
+	FIFO_ADD(&TEMP, 0xFF);
+	FIFO_ADD(&TEMP, 0xFF);
+	FIFO_ADD(&TEMP, 0xFF);
+	FIFO_ADD(&TEMP, 0xFF);
+	FIFO_ADD(&TEMP, uid[0]);
+	FIFO_ADD(&TEMP, uid[1]);
+	FIFO_ADD(&TEMP, uid[2]);
+	FIFO_ADD(&TEMP, uid[3]);
+
+	for (int i = 0; i < TEMP.head; i++){
+		MFRC522_WriteReg(dev, PCD_FIFODataReg, TEMP.buffer[i]);
+	}
+
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, PICC_AUTH_B);  // 0x61
+//	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, address);    // Address of the block to read
+//	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
+//
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, 0xFF);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[0]);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[1]);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[2]);
+//	MFRC522_WriteReg(dev, PCD_FIFODataReg, uid[3]);
+//
+//	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
 
 	HAL_Delay(2);  // Delay for stability
 	MFRC522_WriteReg(dev, PCD_CommandReg, PCD_MFAuthent);
-	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
-	//MFRC522_SetBitMask(dev, PCD_BitFramingReg, 0x80); //only "Transceive" command needs it
+//	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
+//	MFRC522_SetBitMask(dev, PCD_BitFramingReg, 0x80); //only "Transceive" command needs it
 
     uint32_t timeout = HAL_GetTick() + 5000;
-    while (HAL_GetTick() < timeout) {
+    while (HAL_GetTick() < timeout){
     	MFRC522_ReadReg(dev, PCD_ErrorReg);
     	MFRC522_ReadReg(dev, PCD_FIFOLevelReg);
     	MFRC522_ReadReg(dev, 0x0B); // water level reg.
     	uint8_t irq = MFRC522_ReadReg(dev, PCD_ComIrqReg);
         uint8_t status2 = MFRC522_ReadReg(dev, PCD_Status2Reg);
 
-        if (irq & 0x02) {
+        if (irq & 0x02){
         	return STATUS_ERROR;
         }
 
         if (irq & 0x10){
-			if (status2 & 0x08) {  // MFCrypto1On bit is set
+			if (status2 & 0x08){  // MFCrypto1On bit is set
 				uint8_t err = MFRC522_ReadReg(dev, PCD_ErrorReg);
-				if (err & 0x1D) {
+				if (err & 0x1D){
 					DEBUG_LOG("Authentication error: 0x%02X", err);
 					MFRC522_AntennaOff(dev);
 					HAL_Delay(5);
@@ -336,9 +387,11 @@ uint8_t MFRC522_Authentication(MFRC522_t *dev, uint8_t *uid, uint8_t *block_data
 				HAL_Delay(2);  // Post-command delay
 				return STATUS_OK;
 			}
+
 			HAL_Delay(1);  // Mimic debug log timing
         }
     }
+
     USER_LOG("Authentication timeout");
     MFRC522_AntennaOff(dev);
     HAL_Delay(5);
@@ -347,38 +400,31 @@ uint8_t MFRC522_Authentication(MFRC522_t *dev, uint8_t *uid, uint8_t *block_data
 }
 
 uint8_t waitcardRemoval (MFRC522_t *dev){
-    USER_LOG("Waiting for card removal...");
-    while (1) {
-        if (MFRC522_RequestA(dev, atqa) != STATUS_OK) {
-        	USER_LOG("Card removed");
-            return STATUS_OK; // Card removed, return success
-        }
-        HAL_Delay(100); // Poll every 100ms to check if card is still present
-    }
-}
-
-uint8_t waitcardRemoval_2 (MFRC522_t *dev){
-	MFRC522_ReadReg(dev, PCD_Status2Reg);
-//    USER_LOG("Waiting for card removal...");
     MFRC522_WriteReg(dev, PCD_Status2Reg, 0x00);
     MFRC522_AntennaOff(dev);
     HAL_Delay(5);
     MFRC522_WriteReg(dev, PCD_CommandReg, PCD_Idle);
-//    while (1) {
-//    	MFRC522_ReadReg(dev, PCD_Status2Reg);
-//
-//        }
-//        HAL_Delay(100); // Poll every 100ms to check if card is still present
+
+    USER_LOG("Waiting for card removal...");
+    while (1){
+        if (MFRC522_RequestA(dev, atqa) != STATUS_OK){
+        	USER_LOG("Card removed");
+            return STATUS_OK; // Card removed, return success
+        }
+
+        HAL_Delay(100); // Poll every 100ms to check if card is still present
+    }
 }
 
 uint8_t waitcardDetect (MFRC522_t *dev){
 	atqa[0] = atqa[1] = 0;
 	USER_LOG("Waiting for the card...");
 	while (1){
-	    if (MFRC522_RequestA(dev, atqa) == STATUS_OK) {
+	    if (MFRC522_RequestA(dev, atqa) == STATUS_OK){
 	    	USER_LOG("Card detected");
 	        return STATUS_OK;
 	    }
+
 	    HAL_Delay(100);	// Poll every 100ms to check if card is  present
 	}
 }

@@ -10,6 +10,7 @@
 
 #if ENABLE_USER_LOG
   #define USER_LOG(fmt, ...) printf("[USER] " fmt "\r\n", ##__VA_ARGS__)
+  #define USER_LOG_N(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #else
   #define USER_LOG(fmt, ...)
 #endif
@@ -64,6 +65,12 @@ typedef struct {
     uint16_t rstPin;
 } MFRC522_t;
 
+typedef struct {
+    uint8_t buffer[64];
+    uint8_t head;
+	uint8_t tail;
+} FIFO_64B;
+
 // Prototypes
 void MFRC522_Init(MFRC522_t *dev);
 void MFRC522_AntennaOff(MFRC522_t *dev);
@@ -76,10 +83,9 @@ uint8_t MFRC522_RequestA(MFRC522_t *dev, uint8_t *atqa);
 uint8_t MFRC522_Anticoll(MFRC522_t *dev, uint8_t *uid);
 uint8_t MFRC522_ReadUid(MFRC522_t *dev, uint8_t *uid);
 uint8_t MFRC522_Select(MFRC522_t *dev, uint8_t *uid);
-uint8_t MFRC522_Authentication(MFRC522_t *dev, uint8_t *uid, uint8_t *block_data, uint8_t address);
+uint8_t MFRC522_Authentication(MFRC522_t *dev, uint8_t *uid, uint8_t address);
 uint8_t MFRC522_Read_Block(MFRC522_t *dev, uint8_t address, uint8_t *block_data);
 uint8_t waitcardRemoval (MFRC522_t *dev);
-uint8_t waitcardRemoval_2 (MFRC522_t *dev);
 uint8_t waitcardDetect (MFRC522_t *dev);
 
 #endif
