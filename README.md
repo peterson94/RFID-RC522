@@ -14,4 +14,4 @@ http://www.emutag.com/iso/14443-3.pdf
 CRC calc.:
 https://www.sunshine2k.de/coding/javascript/crc/crc_js.html
 
-<img src="https://github.com/peterson94/RFID-RC522/blob/master/K%C3%A9perny%C5%91k%C3%A9p%202026-04-27%20112659.png" alt="Pic1" width="240" height="320">
+<img src="https://github.com/peterson94/RFID-RC522/blob/master/Setup_pinout_description.png" alt="Pic1" width="240" height="320">
