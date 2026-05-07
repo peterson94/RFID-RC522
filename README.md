@@ -7,7 +7,7 @@ https://www.nxp.com/docs/en/data-sheet/MF1S50YYX_V1.pdf
 App. Notes:
 https://www.nxp.com/docs/en/application-note/AN10833.pdf
 https://www.nxp.com/docs/en/application-note/AN10834.pdf
-d
+
 Standard doc.:
 http://www.emutag.com/iso/14443-3.pdf
 
